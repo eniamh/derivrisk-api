@@ -39,5 +39,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+// Bind to Render's PORT (fallback to 5053 for local dev)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5053";
+app.Run($"http://0.0.0.0:{port}");
+//app.Run();
 
