@@ -39,5 +39,8 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
-app.Run();
+// Listen on Railway's PORT or fallback to 5053 for local
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5053";
+app.Run($"http://0.0.0.0:{port}");
+//app.Run();
 
