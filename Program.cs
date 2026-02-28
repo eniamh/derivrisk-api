@@ -15,7 +15,8 @@ builder.Services.AddCors(options =>
             .WithOrigins(
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
-                "http://85.91.16.21:5173"   // ← your actual IP
+                "http://85.91.16.21:5173",   // ← your actual IP
+                "https://derivrisk-frontend.vercel.app"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
