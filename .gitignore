@@ -1,0 +1,64 @@
+# .NET Build / Output
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.vs/
+*.vscode/
+*.idea/
+
+# NuGet Packages
+*.nupkg
+*.snk
+*.DotSettings.user
+
+# Test Results
+[TestResults]/
+*.trx
+*.testresult
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+*.csproj.user
+*.user
+
+# Visual Studio Code
+.vscode/
+
+# Logs and Temp
+*.log
+*.tmp
+*.cache
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.rsuser
+*.user
+
+# Backup files
+*~
+
+# Publish Output
+wwwroot/
+www/
+
+# Entity Framework Migrations (sometimes ignored, sometimes not)
+Migrations/*ModelSnapshot.cs
+
+# Optional: ignore secrets (but better to use user secrets or env vars)
+appsettings.*.json
+secrets.json
+
+# Optional: ignore large binary files (e.g. if you have data files)
+*.bak
+*.db
+*.sqlite
+*.mdb
+*.accdb
+
+# Optional: ignore packages folder (if using local NuGet cache)
+packages/
