@@ -100,19 +100,22 @@ public class SimulationController : ControllerBase
 
     [HttpGet("fx-forward-paths")]
     public IActionResult GetFxForwardPaths(
-        [FromQuery] string model = "gbm",          // "gbm" or "ou"
+        [FromQuery] string model = "gbm",
         [FromQuery] int paths = 100,
         [FromQuery] int steps = 200,
-        [FromQuery] double spot = 1.10,            // S0
-        [FromQuery] double maturity = 1.0,         // T
+        [FromQuery] double spot = 1.10,
+        [FromQuery] double maturity = 1.0,
         [FromQuery] double r_dom = 0.03,
         [FromQuery] double r_for = 0.01,
-        // OU-specific
+        // Model-specific
         [FromQuery] double kappa = 3.0,
         [FromQuery] double theta = 1.10,
         [FromQuery] double sigma_ou = 0.12,
-        // GBM-specific vol (if model=gbm)
-        [FromQuery] double sigma_gbm = 0.15)
+        [FromQuery] double sigma_gbm = 0.15,
+        // FX Forward parameters
+        [FromQuery] double strike = 0,           // new – fixed K
+        [FromQuery] double notional = 1_000_000, // new – amount in foreign
+        [FromQuery] string direction = "buy")    // new: "buy" or "sell"
     {
         var random = new Random();
         var dt = maturity / steps;
@@ -121,15 +124,25 @@ public class SimulationController : ControllerBase
         var underlyingPaths = new List<List<double>>();
         var pvPaths = new List<List<double>>();
 
+        // Forward price at t=0 (used as strike if not provided)
         double forwardAtT0 = spot * Math.Exp((r_dom - r_for) * maturity);
-        double discountFactorAtT = Math.Exp(-r_dom * maturity);
+        double finalStrike = strike > 0 ? strike : forwardAtT0;  // use provided strike or fair forward
+
+        double sign = direction.ToLower() == "buy" ? 1.0 : -1.0;  // buy: +receive foreign, sell: -receive foreign
 
         for (int p = 0; p < paths; p++)
         {
             var spotPath = new List<double> { spot };
-            var pvPath   = new List<double> { 0.0 };   // PV at t=0 is 0
+            var pvPath = new List<double> ();  
 
             double currentSpot = spot;
+
+            // Calculate PV at t=0 (using shocked initial spot and fixed strike)
+            double timeLeftAt0_0 = maturity;  // T - 0
+            double fwdAtT0_0  = currentSpot * Math.Exp((r_dom - r_for) * timeLeftAt0_0 );
+            double payoffAtMaturity_0  = sign * (fwdAtT0_0  - finalStrike) * notional;
+            double pvAt0 = Math.Exp(-r_dom * timeLeftAt0_0 ) * payoffAtMaturity_0 ;
+            pvPath.Add(pvAt0);
 
             for (int step = 0; step < steps; step++)
             {
@@ -148,10 +161,11 @@ public class SimulationController : ControllerBase
 
                 spotPath.Add(currentSpot);
 
-                // PV at this time step
+                // PV at this time step (fixed strike, scaled by notional & direction)
                 double timeLeft = maturity - (step + 1) * dt;
                 double fwdAtThisTime = currentSpot * Math.Exp((r_dom - r_for) * timeLeft);
-                double pv = Math.Exp(-r_dom * timeLeft) * (fwdAtThisTime - forwardAtT0);
+                double payoffAtMaturity = sign * (fwdAtThisTime - finalStrike) * notional;
+                double pv = Math.Exp(-r_dom * timeLeft) * payoffAtMaturity;
                 pvPath.Add(pv);
             }
 
@@ -163,44 +177,42 @@ public class SimulationController : ControllerBase
             .Select(i => i * dt)
             .ToArray();
 
-        // Helper to compute stats at each time step
-        var ComputeStats = (List<List<double>> allPaths) =>
-        {
-            var stats = new List<object>();
-            for (int step = 0; step <= steps; step++)
-            {
-                var valuesAtStep = allPaths.Select(path => path[step]).ToList();
-                valuesAtStep.Sort(); // for percentile calculation
-
-                double mean = valuesAtStep.Average();
-                double p5  = valuesAtStep[(int)(0.05 * paths)];           // approx 5th percentile
-                double p95 = valuesAtStep[(int)(0.95 * paths)];           // approx 95th percentile
-
-                stats.Add(new
-                {
-                    time = timePoints[step],
-                    mean,
-                    p5,
-                    p95
-                });
-            }
-            return stats;
-        };
-
-        var underlyingStats = ComputeStats(underlyingPaths);
-        var pvStats = ComputeStats(pvPaths);
+        var underlyingStats = ComputeStats(underlyingPaths, timePoints); // add scenario later in frontend if needed
+        var pvStats = ComputeStats(pvPaths, timePoints);
 
         return Ok(new
         {
             underlyingStats,
             pvStats,
             timePoints,
-            forwardPriceAtT0 = forwardAtT0,           // analytical forward
+            forwardAtT0,
+            usedStrike = strike > 0 ? strike : forwardAtT0,
             initialPV = 0.0
         });
     }
 
+    // Helper method (add if missing)
+    private List<object> ComputeStats(List<List<double>> paths, double[] times)
+    {
+        var stats = new List<object>();
+        for (int step = 0; step < times.Length; step++)
+        {
+            var values = paths.Select(p => p[step]).ToList();
+            values.Sort();
+            double mean = values.Average();
+            double p5  = values[(int)(0.05 * values.Count)];
+            double p95 = values[(int)(0.95 * values.Count)];
 
+            stats.Add(new
+            {
+                time = times[step],
+                mean,
+                p5,
+                p95
+            });
+        }
+        return stats;
+    }
 
     private static double NextGaussian(Random rng)
     {
