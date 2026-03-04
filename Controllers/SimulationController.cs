@@ -186,6 +186,7 @@ public class SimulationController : ControllerBase
             pvStats,
             timePoints,
             forwardAtT0,
+            underlyingPaths,
             usedStrike = strike > 0 ? strike : forwardAtT0,
             initialPV = 0.0
         });
